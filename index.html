@@ -205,6 +205,25 @@
             background: rgba(255, 255, 255, 1);
         }
 
+        #visitorCounter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        #visitorCounter span {
+            color: #764ba2;
+            font-size: 16px;
+        }
+
         #bat {
             position: fixed;
             font-size: 120px;
@@ -242,6 +261,8 @@
 
         <button id="muteBtn">🔊 Sound ON</button>
 
+        <div id="visitorCounter">👥 Visitors: <span id="visitorCount">...</span></div>
+
         <div id="combo"></div>
 
         <div id="instructions">
@@ -259,7 +280,7 @@
         const JSONBIN_API = 'https://api.jsonbin.io/v3';
 
         window.gameDB = {
-            async getGlobalScore() {
+            async getBinData() {
                 try {
                     const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}/latest`, {
                         headers: {
@@ -268,13 +289,25 @@
                     });
 
                     if (!response.ok) {
-                        // Fallback to localStorage if API fails
-                        const stored = localStorage.getItem('fallbackGlobalScore');
-                        return stored ? parseInt(stored) : 0;
+                        return null;
                     }
 
                     const data = await response.json();
-                    return data.record.score || 0;
+                    return data.record;
+                } catch (error) {
+                    console.log('Error fetching bin data');
+                    return null;
+                }
+            },
+
+            async getGlobalScore() {
+                try {
+                    const data = await this.getBinData();
+                    if (!data) {
+                        const stored = localStorage.getItem('fallbackGlobalScore');
+                        return stored ? parseInt(stored) : 0;
+                    }
+                    return data.score || 0;
                 } catch (error) {
                     console.log('Using fallback storage');
                     const stored = localStorage.getItem('fallbackGlobalScore');
@@ -284,9 +317,12 @@
 
             async setGlobalScore(score) {
                 try {
-                    const current = await this.getGlobalScore();
-                    if (score <= current) return false;
+                    const binData = await this.getBinData() || {};
+                    const currentScore = binData.score || 0;
 
+                    if (score <= currentScore) return false;
+
+                    // Preserve visitor count when updating score
                     const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
                         method: 'PUT',
                         headers: {
@@ -296,7 +332,8 @@
                         body: JSON.stringify({
                             score: score,
                             timestamp: Date.now(),
-                            date: new Date().toISOString()
+                            date: new Date().toISOString(),
+                            visitors: binData.visitors || 0
                         })
                     });
 
@@ -315,6 +352,45 @@
                         return true;
                     }
                     return false;
+                }
+            },
+
+            async incrementVisitors() {
+                try {
+                    const binData = await this.getBinData() || {};
+                    const currentVisitors = binData.visitors || 0;
+                    const newVisitors = currentVisitors + 1;
+
+                    const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Access-Key': JSONBIN_API_KEY
+                        },
+                        body: JSON.stringify({
+                            score: binData.score || 0,
+                            timestamp: binData.timestamp || Date.now(),
+                            date: binData.date || new Date().toISOString(),
+                            visitors: newVisitors
+                        })
+                    });
+
+                    if (response.ok) {
+                        return newVisitors;
+                    }
+                    return currentVisitors;
+                } catch (error) {
+                    console.log('Error incrementing visitors');
+                    return 0;
+                }
+            },
+
+            async getVisitors() {
+                try {
+                    const data = await this.getBinData();
+                    return data ? (data.visitors || 0) : 0;
+                } catch (error) {
+                    return 0;
                 }
             }
         };
@@ -338,6 +414,7 @@
         const comboDisplay = document.getElementById('combo');
         const muteBtn = document.getElementById('muteBtn');
         const bat = document.getElementById('bat');
+        const visitorCountDisplay = document.getElementById('visitorCount');
 
         highScoreDisplay.textContent = `Your Best: ${highScore}`;
 
@@ -373,8 +450,27 @@
             }
         }
 
-        // Load global score on startup
+        // Track visitor
+        async function trackVisitor() {
+            if (!window.gameDB) return;
+
+            // Check if this is a new visitor (using sessionStorage)
+            if (!sessionStorage.getItem('visited')) {
+                sessionStorage.setItem('visited', 'true');
+                const count = await window.gameDB.incrementVisitors();
+                if (count > 0) {
+                    visitorCountDisplay.textContent = count.toLocaleString();
+                }
+            } else {
+                // Just get the current count
+                const count = await window.gameDB.getVisitors();
+                visitorCountDisplay.textContent = count.toLocaleString();
+            }
+        }
+
+        // Load global score and track visitor on startup
         loadGlobalScore();
+        trackVisitor();
 
         muteBtn.addEventListener('click', () => {
             soundEnabled = !soundEnabled;

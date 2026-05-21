@@ -7,6 +7,7 @@ A fun, endless browser game where you hunt down cockroaches with your trusty swa
 - 🎯 Click to kill moving cockroaches with a chappal (slipper)
 - 📊 Score tracking with local high score persistence
 - 🌍 **Global World Record** - compete with players worldwide!
+- 👥 **Visitor Counter** - see how many people have played!
 - 🔥 Combo system for consecutive kills
 - 🎵 Sound effects (can be muted)
 - 📈 Increasing difficulty as you progress
