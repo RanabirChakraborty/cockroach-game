@@ -16,7 +16,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             overflow: hidden;
             height: 100vh;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text y="32" font-size="32">🪰</text></svg>') 20 20, auto;
+            cursor: none;
         }
 
         #gameContainer {
@@ -60,9 +60,9 @@
 
         .cockroach {
             position: absolute;
-            font-size: 40px;
+            font-size: 60px;
             transition: all 0.3s ease-out;
-            cursor: pointer;
+            cursor: none;
             user-select: none;
             z-index: 10;
             animation: wiggle 0.5s infinite;
@@ -79,7 +79,7 @@
 
         .splat {
             position: absolute;
-            font-size: 60px;
+            font-size: 80px;
             animation: splatAnim 0.6s ease-out forwards;
             pointer-events: none;
             z-index: 5;
@@ -190,6 +190,31 @@
         #muteBtn:hover {
             background: rgba(255, 255, 255, 1);
         }
+
+        #bat {
+            position: fixed;
+            font-size: 120px;
+            pointer-events: none;
+            z-index: 10000;
+            transition: transform 0.05s ease-out;
+            transform-origin: center center;
+        }
+
+        .swatting {
+            animation: swat 0.2s ease-out !important;
+        }
+
+        @keyframes swat {
+            0% {
+                transform: rotate(0deg) scale(1);
+            }
+            50% {
+                transform: rotate(-20deg) scale(1.2);
+            }
+            100% {
+                transform: rotate(0deg) scale(1);
+            }
+        }
     </style>
 </head>
 <body>
@@ -209,6 +234,8 @@
         </div>
     </div>
 
+    <div id="bat">🩴</div>
+
     <script>
         let score = 0;
         let highScore = localStorage.getItem('highScore') || 0;
@@ -224,6 +251,7 @@
         const highScoreDisplay = document.getElementById('highScore');
         const comboDisplay = document.getElementById('combo');
         const muteBtn = document.getElementById('muteBtn');
+        const bat = document.getElementById('bat');
 
         highScoreDisplay.textContent = `High Score: ${highScore}`;
 
@@ -358,6 +386,20 @@
             createCockroach();
             setTimeout(spawnCockroaches, spawnRate);
         }
+
+        // Bat cursor follows mouse
+        document.addEventListener('mousemove', (e) => {
+            bat.style.left = (e.clientX - 40) + 'px';
+            bat.style.top = (e.clientY - 40) + 'px';
+        });
+
+        // Bat swatting animation on click
+        document.addEventListener('mousedown', () => {
+            bat.classList.add('swatting');
+            setTimeout(() => {
+                bat.classList.remove('swatting');
+            }, 200);
+        });
 
         setTimeout(() => {
             document.getElementById('instructions').style.display = 'none';
