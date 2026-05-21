@@ -33,9 +33,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inject JSONBin credentials
+        env:
+          JSONBIN_BIN_ID: ${{ secrets.JSONBIN_BIN_ID }}
+          JSONBIN_API_KEY: ${{ secrets.JSONBIN_API_KEY }}
         run: |
-          sed -i.bak "s/__JSONBIN_BIN_ID__/${{ secrets.JSONBIN_BIN_ID }}/g" index.html
-          sed -i.bak "s/__JSONBIN_API_KEY__/${{ secrets.JSONBIN_API_KEY }}/g" index.html
+          # Use | as delimiter to avoid conflicts with special characters
+          sed -i.bak "s|__JSONBIN_BIN_ID__|${JSONBIN_BIN_ID}|g" index.html
+          sed -i.bak "s|__JSONBIN_API_KEY__|${JSONBIN_API_KEY}|g" index.html
           rm -f index.html.bak
 
       - name: Setup Pages
