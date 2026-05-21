@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cockroach Killer Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><text y="32" font-size="32">🪰</text></svg>') 20 20, auto;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #scoreBoard {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            text-align: center;
+        }
+
+        #score {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        #scoreLabel {
+            font-size: 16px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #highScore {
+            font-size: 14px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .cockroach {
+            position: absolute;
+            font-size: 40px;
+            transition: all 0.3s ease-out;
+            cursor: pointer;
+            user-select: none;
+            z-index: 10;
+            animation: wiggle 0.5s infinite;
+        }
+
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        .cockroach:hover {
+            transform: scale(1.2) !important;
+        }
+
+        .splat {
+            position: absolute;
+            font-size: 60px;
+            animation: splatAnim 0.6s ease-out forwards;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        @keyframes splatAnim {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.2) rotate(180deg);
+            }
+            100% {
+                transform: scale(1) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .hitEffect {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255,0,0,0.5) 0%, rgba(255,0,0,0) 70%);
+            border-radius: 50%;
+            animation: hitAnim 0.5s ease-out forwards;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        @keyframes hitAnim {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: #333;
+            font-size: 14px;
+            z-index: 1000;
+            animation: fadeInOut 3s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+
+        #combo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 2000;
+            opacity: 0;
+        }
+
+        .comboShow {
+            animation: comboAnim 1s ease-out forwards !important;
+        }
+
+        @keyframes comboAnim {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        #muteBtn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        #muteBtn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="scoreBoard">
+            <div id="score">0</div>
+            <div id="scoreLabel">Score</div>
+            <div id="highScore">High Score: 0</div>
+        </div>
+
+        <button id="muteBtn">🔊 Sound ON</button>
+
+        <div id="combo"></div>
+
+        <div id="instructions">
+            Click on the cockroaches to kill them! 🪳
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let highScore = localStorage.getItem('highScore') || 0;
+        let cockroaches = [];
+        let spawnRate = 2000;
+        let cockroachSpeed = 3000;
+        let comboCount = 0;
+        let comboTimer = null;
+        let soundEnabled = true;
+
+        const gameContainer = document.getElementById('gameContainer');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('highScore');
+        const comboDisplay = document.getElementById('combo');
+        const muteBtn = document.getElementById('muteBtn');
+
+        highScoreDisplay.textContent = `High Score: ${highScore}`;
+
+        muteBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            muteBtn.textContent = soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+        });
+
+        function playSound(frequency, duration) {
+            if (!soundEnabled) return;
+
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function createCockroach() {
+            const cockroach = document.createElement('div');
+            cockroach.className = 'cockroach';
+            cockroach.textContent = '🪳';
+
+            const startX = Math.random() * (window.innerWidth - 50);
+            const startY = Math.random() * (window.innerHeight - 50);
+
+            cockroach.style.left = startX + 'px';
+            cockroach.style.top = startY + 'px';
+
+            gameContainer.appendChild(cockroach);
+
+            const cockroachObj = {
+                element: cockroach,
+                moveInterval: null
+            };
+
+            cockroaches.push(cockroachObj);
+
+            cockroach.addEventListener('click', (e) => {
+                e.stopPropagation();
+                killCockroach(cockroachObj);
+            });
+
+            moveCockroach(cockroachObj);
+        }
+
+        function moveCockroach(cockroachObj) {
+            cockroachObj.moveInterval = setInterval(() => {
+                const newX = Math.random() * (window.innerWidth - 50);
+                const newY = Math.random() * (window.innerHeight - 50);
+
+                cockroachObj.element.style.left = newX + 'px';
+                cockroachObj.element.style.top = newY + 'px';
+
+                const randomRotation = Math.random() * 360;
+                cockroachObj.element.style.transform = `rotate(${randomRotation}deg)`;
+            }, cockroachSpeed);
+        }
+
+        function killCockroach(cockroachObj) {
+            const rect = cockroachObj.element.getBoundingClientRect();
+
+            clearInterval(cockroachObj.moveInterval);
+
+            const splat = document.createElement('div');
+            splat.className = 'splat';
+            splat.textContent = '💥';
+            splat.style.left = rect.left + 'px';
+            splat.style.top = rect.top + 'px';
+            gameContainer.appendChild(splat);
+
+            const hitEffect = document.createElement('div');
+            hitEffect.className = 'hitEffect';
+            hitEffect.style.left = (rect.left - 25) + 'px';
+            hitEffect.style.top = (rect.top - 25) + 'px';
+            gameContainer.appendChild(hitEffect);
+
+            setTimeout(() => {
+                splat.remove();
+                hitEffect.remove();
+            }, 600);
+
+            cockroachObj.element.remove();
+            cockroaches = cockroaches.filter(c => c !== cockroachObj);
+
+            score++;
+            comboCount++;
+            scoreDisplay.textContent = score;
+
+            playSound(800, 0.1);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('highScore', highScore);
+                highScoreDisplay.textContent = `High Score: ${highScore}`;
+            }
+
+            clearTimeout(comboTimer);
+            comboTimer = setTimeout(() => {
+                comboCount = 0;
+            }, 1500);
+
+            if (comboCount >= 3) {
+                showCombo();
+            }
+
+            if (score % 10 === 0) {
+                spawnRate = Math.max(800, spawnRate - 100);
+                cockroachSpeed = Math.max(1500, cockroachSpeed - 200);
+            }
+        }
+
+        function showCombo() {
+            comboDisplay.textContent = `${comboCount}x COMBO!`;
+            comboDisplay.classList.remove('comboShow');
+            void comboDisplay.offsetWidth;
+            comboDisplay.classList.add('comboShow');
+            playSound(1200, 0.2);
+        }
+
+        function spawnCockroaches() {
+            createCockroach();
+            setTimeout(spawnCockroaches, spawnRate);
+        }
+
+        setTimeout(() => {
+            document.getElementById('instructions').style.display = 'none';
+        }, 3000);
+
+        spawnCockroaches();
+    </script>
+</body>
+</html>
