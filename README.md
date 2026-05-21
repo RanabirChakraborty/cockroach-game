@@ -4,12 +4,14 @@ A fun, endless browser game where you hunt down cockroaches with your trusty swa
 
 ## Features
 
-- 🎯 Click to kill moving cockroaches
-- 📊 Score tracking with high score persistence
+- 🎯 Click to kill moving cockroaches with a chappal (slipper)
+- 📊 Score tracking with local high score persistence
+- 🌍 **Global World Record** - compete with players worldwide!
 - 🔥 Combo system for consecutive kills
 - 🎵 Sound effects (can be muted)
 - 📈 Increasing difficulty as you progress
 - 💯 Fully client-side - no server needed!
+- 🩴 Animated chappal cursor that swats!
 
 ## How to Play
 
@@ -22,7 +24,7 @@ The game gets progressively harder as your score increases - cockroaches spawn f
 
 ## Play Online
 
-[Play the game here!](#) (Link will be updated after GitHub Pages deployment)
+[Play the game here!](https://ranabirchakraborty.github.io/cockroach-game/)
 
 ## Local Development
 

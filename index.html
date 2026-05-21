@@ -36,6 +36,7 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             z-index: 1000;
             text-align: center;
+            min-width: 250px;
         }
 
         #score {
@@ -56,6 +57,19 @@
             font-size: 14px;
             color: #999;
             margin-top: 5px;
+        }
+
+        #globalHighScore {
+            font-size: 14px;
+            color: #FFD700;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            font-weight: bold;
+        }
+
+        .loading {
+            color: #ccc !important;
         }
 
         .cockroach {
@@ -222,7 +236,8 @@
         <div id="scoreBoard">
             <div id="score">0</div>
             <div id="scoreLabel">Score</div>
-            <div id="highScore">High Score: 0</div>
+            <div id="highScore">Your Best: 0</div>
+            <div id="globalHighScore" class="loading">🌍 World Record: Loading...</div>
         </div>
 
         <button id="muteBtn">🔊 Sound ON</button>
@@ -236,9 +251,79 @@
 
     <div id="bat">🩴</div>
 
+    <!-- Global Score using JSONBin.io (Free, no signup needed) -->
+    <script>
+        // JSONBin.io configuration - Injected by GitHub Actions
+        const JSONBIN_BIN_ID = '__JSONBIN_BIN_ID__'; // Will be replaced during deployment
+        const JSONBIN_API_KEY = '__JSONBIN_API_KEY__'; // Will be replaced during deployment
+        const JSONBIN_API = 'https://api.jsonbin.io/v3';
+
+        window.gameDB = {
+            async getGlobalScore() {
+                try {
+                    const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}/latest`, {
+                        headers: {
+                            'X-Access-Key': JSONBIN_API_KEY
+                        }
+                    });
+
+                    if (!response.ok) {
+                        // Fallback to localStorage if API fails
+                        const stored = localStorage.getItem('fallbackGlobalScore');
+                        return stored ? parseInt(stored) : 0;
+                    }
+
+                    const data = await response.json();
+                    return data.record.score || 0;
+                } catch (error) {
+                    console.log('Using fallback storage');
+                    const stored = localStorage.getItem('fallbackGlobalScore');
+                    return stored ? parseInt(stored) : 0;
+                }
+            },
+
+            async setGlobalScore(score) {
+                try {
+                    const current = await this.getGlobalScore();
+                    if (score <= current) return false;
+
+                    const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Access-Key': JSONBIN_API_KEY
+                        },
+                        body: JSON.stringify({
+                            score: score,
+                            timestamp: Date.now(),
+                            date: new Date().toISOString()
+                        })
+                    });
+
+                    if (response.ok) {
+                        return true;
+                    } else {
+                        // Fallback to localStorage
+                        localStorage.setItem('fallbackGlobalScore', score.toString());
+                        return true;
+                    }
+                } catch (error) {
+                    console.log('Using fallback storage');
+                    const current = await this.getGlobalScore();
+                    if (score > current) {
+                        localStorage.setItem('fallbackGlobalScore', score.toString());
+                        return true;
+                    }
+                    return false;
+                }
+            }
+        };
+    </script>
+
     <script>
         let score = 0;
         let highScore = localStorage.getItem('highScore') || 0;
+        let globalHighScore = 0;
         let cockroaches = [];
         let spawnRate = 2000;
         let cockroachSpeed = 3000;
@@ -249,11 +334,47 @@
         const gameContainer = document.getElementById('gameContainer');
         const scoreDisplay = document.getElementById('score');
         const highScoreDisplay = document.getElementById('highScore');
+        const globalHighScoreDisplay = document.getElementById('globalHighScore');
         const comboDisplay = document.getElementById('combo');
         const muteBtn = document.getElementById('muteBtn');
         const bat = document.getElementById('bat');
 
-        highScoreDisplay.textContent = `High Score: ${highScore}`;
+        highScoreDisplay.textContent = `Your Best: ${highScore}`;
+
+        // Load global high score
+        async function loadGlobalScore() {
+            if (!window.gameDB) return;
+
+            const score = await window.gameDB.getGlobalScore();
+            globalHighScore = score;
+            globalHighScoreDisplay.classList.remove('loading');
+            globalHighScoreDisplay.textContent = `🌍 World Record: ${globalHighScore}`;
+        }
+
+        async function updateGlobalHighScore(newScore) {
+            if (!window.gameDB) return;
+
+            try {
+                const isNewRecord = await window.gameDB.setGlobalScore(newScore);
+
+                if (isNewRecord) {
+                    globalHighScore = newScore;
+                    globalHighScoreDisplay.textContent = `🌍 World Record: ${globalHighScore}`;
+
+                    // Show celebration for new world record
+                    comboDisplay.textContent = '🏆 NEW WORLD RECORD! 🏆';
+                    comboDisplay.classList.remove('comboShow');
+                    void comboDisplay.offsetWidth;
+                    comboDisplay.classList.add('comboShow');
+                    playSound(1500, 0.5);
+                }
+            } catch (error) {
+                console.error('Error updating global high score:', error);
+            }
+        }
+
+        // Load global score on startup
+        loadGlobalScore();
 
         muteBtn.addEventListener('click', () => {
             soundEnabled = !soundEnabled;
@@ -356,7 +477,10 @@
             if (score > highScore) {
                 highScore = score;
                 localStorage.setItem('highScore', highScore);
-                highScoreDisplay.textContent = `High Score: ${highScore}`;
+                highScoreDisplay.textContent = `Your Best: ${highScore}`;
+
+                // Update global high score
+                updateGlobalHighScore(score);
             }
 
             clearTimeout(comboTimer);
