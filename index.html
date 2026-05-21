@@ -205,24 +205,6 @@
             background: rgba(255, 255, 255, 1);
         }
 
-        #visitorCounter {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #667eea;
-            font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
-        }
-
-        #visitorCounter span {
-            color: #764ba2;
-            font-size: 16px;
-        }
 
         #bat {
             position: fixed;
@@ -261,7 +243,6 @@
 
         <button id="muteBtn">🔊 Sound ON</button>
 
-        <div id="visitorCounter">👥 Visitors: <span id="visitorCount">...</span></div>
 
         <div id="combo"></div>
 
@@ -322,10 +303,6 @@
 
                     if (score <= currentScore) return false;
 
-                    // Read the LATEST visitor count to avoid overwriting concurrent updates
-                    const latestData = await this.getBinData() || {};
-
-                    // Preserve visitor count when updating score
                     const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
                         method: 'PUT',
                         headers: {
@@ -335,8 +312,7 @@
                         body: JSON.stringify({
                             score: score,
                             timestamp: Date.now(),
-                            date: new Date().toISOString(),
-                            visitors: latestData.visitors !== undefined ? latestData.visitors : 0
+                            date: new Date().toISOString()
                         })
                     });
 
@@ -358,44 +334,7 @@
                 }
             },
 
-            async incrementVisitors() {
-                try {
-                    const binData = await this.getBinData() || {};
-                    const currentVisitors = binData.visitors !== undefined ? binData.visitors : 0;
-                    const newVisitors = currentVisitors + 1;
 
-                    const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Access-Key': JSONBIN_API_KEY
-                        },
-                        body: JSON.stringify({
-                            score: binData.score !== undefined ? binData.score : 0,
-                            timestamp: binData.timestamp || Date.now(),
-                            date: binData.date || new Date().toISOString(),
-                            visitors: newVisitors
-                        })
-                    });
-
-                    if (response.ok) {
-                        return newVisitors;
-                    }
-                    return currentVisitors;
-                } catch (error) {
-                    console.log('Error incrementing visitors');
-                    return 0;
-                }
-            },
-
-            async getVisitors() {
-                try {
-                    const data = await this.getBinData();
-                    return data ? (data.visitors || 0) : 0;
-                } catch (error) {
-                    return 0;
-                }
-            }
         };
     </script>
 
@@ -417,7 +356,6 @@
         const comboDisplay = document.getElementById('combo');
         const muteBtn = document.getElementById('muteBtn');
         const bat = document.getElementById('bat');
-        const visitorCountDisplay = document.getElementById('visitorCount');
 
         highScoreDisplay.textContent = `Your Best: ${highScore}`;
 
@@ -453,27 +391,9 @@
             }
         }
 
-        // Track visitor
-        async function trackVisitor() {
-            if (!window.gameDB) return;
 
-            // Check if this is a new visitor (using sessionStorage)
-            if (!sessionStorage.getItem('visited')) {
-                sessionStorage.setItem('visited', 'true');
-                const count = await window.gameDB.incrementVisitors();
-                if (count > 0) {
-                    visitorCountDisplay.textContent = count.toLocaleString();
-                }
-            } else {
-                // Just get the current count
-                const count = await window.gameDB.getVisitors();
-                visitorCountDisplay.textContent = count.toLocaleString();
-            }
-        }
-
-        // Load global score and track visitor on startup
+        // Load global score on startup
         loadGlobalScore();
-        trackVisitor();
 
         muteBtn.addEventListener('click', () => {
             soundEnabled = !soundEnabled;
