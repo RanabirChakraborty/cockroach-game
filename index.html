@@ -322,6 +322,9 @@
 
                     if (score <= currentScore) return false;
 
+                    // Read the LATEST visitor count to avoid overwriting concurrent updates
+                    const latestData = await this.getBinData() || {};
+
                     // Preserve visitor count when updating score
                     const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
                         method: 'PUT',
@@ -333,7 +336,7 @@
                             score: score,
                             timestamp: Date.now(),
                             date: new Date().toISOString(),
-                            visitors: binData.visitors || 0
+                            visitors: latestData.visitors !== undefined ? latestData.visitors : 0
                         })
                     });
 
@@ -358,7 +361,7 @@
             async incrementVisitors() {
                 try {
                     const binData = await this.getBinData() || {};
-                    const currentVisitors = binData.visitors || 0;
+                    const currentVisitors = binData.visitors !== undefined ? binData.visitors : 0;
                     const newVisitors = currentVisitors + 1;
 
                     const response = await fetch(`${JSONBIN_API}/b/${JSONBIN_BIN_ID}`, {
@@ -368,7 +371,7 @@
                             'X-Access-Key': JSONBIN_API_KEY
                         },
                         body: JSON.stringify({
-                            score: binData.score || 0,
+                            score: binData.score !== undefined ? binData.score : 0,
                             timestamp: binData.timestamp || Date.now(),
                             date: binData.date || new Date().toISOString(),
                             visitors: newVisitors
